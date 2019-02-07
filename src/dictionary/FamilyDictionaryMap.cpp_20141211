@@ -1,0 +1,442 @@
+/*
+ * FamilyDictionaryMap.cpp
+ *
+ *  Created on: 25/8/2014
+ *      Author: antonio
+ */
+
+#include "FamilyDictionaryMap.hpp"
+#include "../triples/BitmapTriples.hpp"
+#include <stdlib.h>
+#include "../libdac/DAC_VLS.h"
+#include <list>
+
+FamilyDictionaryMap::FamilyDictionaryMap(HDT *hdt, string predicado) {
+    familias.clear();
+    idRdfType = hdt->getDictionary()->stringToId(predicado, PREDICATE);
+    numMiembros=0;
+    numSujetos=hdt->getDictionary()->getMaxSubjectID();
+    secuenciaSujetos = new LogSequence2(hdt::bits(numSujetos));
+    vectorZ = new LogSequence2(hdt::bits(hdt->getTriples()->getNumberOfElements()),hdt->getTriples()->getNumberOfElements());
+    bitmapZ = new BitSequence375(0);
+    string familyKey; //identificador de familia
+    unsigned int idFamilia=0;
+
+    ofstream out2 ("/home/antonio/hdt-lib-rc1-src/triples.a.txt");
+    for (unsigned int s=1; s<=numSujetos; s++){
+        familyKey = "";
+        secuenciaSujetos->push_back(0);
+        PredicadosPorSujeto pxs;
+        pxs.numPredicados = 0;
+        pxs.idPredicados = new unsigned int[0];
+        pxs.numTipos=0; //Numero de tipos
+        pxs.idRdfTypes = new unsigned int[0];
+        pxs.numObjetos=0;
+        pxs.idObjetos = new unsigned int[0];
+        pxs.bitmapObjetos = new BitSequence375(0);
+        TripleID t=TripleID(s,0,0);
+        IteratorTripleID *it = hdt->getTriples()->search(t);
+        unsigned int pant=0;
+        while (it->hasNext()) {
+            TripleID *tid = it->next();
+            unsigned int p = tid->getPredicate();
+            std::stringstream ss;
+            //if (p==idRdfType) ss<<s<<"-http://www.w3.org/1999/02/22-rdf-syntax-ns#type-"<<tid->getObject()<<endl;
+            //else
+            ss<<s<<"-"<<p<<"-"<<tid->getObject()<<endl;
+
+            std::string t=ss.str();
+
+            // Eliminamos de las familias el predicado rdf:type
+            // Generamos las nuevas secuencias Z
+            out2<<t;
+            if (p!=idRdfType){
+
+                unsigned int o = tid->getObject();
+                vectorZ->push_back(o);
+                pxs.numObjetos++;
+                pxs.idObjetos = (unsigned int*) realloc(pxs.idObjetos, pxs.numObjetos*sizeof(unsigned int));
+                pxs.idObjetos[pxs.numObjetos-1]=o;
+                // Devuleve los predicados ordenados. Comparar con el anterior
+                if (p > pant){
+                    pxs.numPredicados++;
+                    pxs.idPredicados = (unsigned int*) realloc(pxs.idPredicados, pxs.numPredicados*sizeof(unsigned int));
+                    pxs.idPredicados[pxs.numPredicados-1]=p;
+                    char predStr [33];
+                    snprintf(predStr, sizeof(predStr), "%d", p);
+                    familyKey = familyKey + predStr + "#";
+                    //Cambio de lista
+                    if (pant!=0){
+                        bitmapZ->append(true);
+                        pxs.bitmapObjetos->append(true);
+                    }
+                } else{
+                    bitmapZ->append(false);
+                    pxs.bitmapObjetos->append(false);
+                }
+                pant=p;
+            }else{
+                // RDF:Types de esa familia
+                pxs.numTipos++;
+                pxs.idRdfTypes = (unsigned int*) realloc(pxs.idRdfTypes, pxs.numTipos*sizeof(unsigned int));
+                pxs.idRdfTypes[pxs.numTipos-1] = tid->getObject();
+            }
+        }
+        bitmapZ->append(true);
+        pxs.bitmapObjetos->append(true);
+        delete it;
+        // Si al finalizar la iteración no tiene tipo. Se le asigna el idtipo 0
+        if (pxs.numTipos==0){
+            pxs.numTipos++;
+            pxs.idRdfTypes = (unsigned int*) realloc(pxs.idRdfTypes, sizeof(unsigned int));
+            pxs.idRdfTypes[0] = 0;
+        }
+        //Puede haber familias del tipo %67823#; los sujetos solo estan asociados con el tipo
+        //EN ese caso las crearemos con predicado=0 -> 0%67823#
+        if (familyKey=="") familyKey="0";
+        //Buscamos las familias
+
+        familyKey= familyKey+"%";
+        for (size_t i=0; i<pxs.numTipos; i++){
+            //familyKey de tipo P1#P2#....Pn#%T1#T2#...Tn#
+           char objStr [33];
+            snprintf(objStr, sizeof(objStr), "%d", pxs.idRdfTypes[i]);
+            familyKey = familyKey + objStr + "#";
+        }
+        map<string,PredicadosPorSujeto>::iterator it2 = familias.find(familyKey);
+        if(it2 != familias.end()){
+           // Ya estaba la familia. Actualizamos datos.
+           it2->second.numSujetos++;
+           it2->second.idSujetos = (unsigned int*) realloc(it2->second.idSujetos, it2->second.numSujetos*sizeof(unsigned int));
+           it2->second.idSujetos[it2->second.numSujetos-1]=s;
+           it2->second.idObjetos = (unsigned int*) realloc(it2->second.idObjetos, it2->second.numObjetos*sizeof(unsigned int));
+           for (unsigned int i=0; i<pxs.numObjetos; i++){
+               it2->second.numObjetos++;
+               it2->second.idObjetos = (unsigned int*) realloc(it2->second.idObjetos, it2->second.numObjetos*sizeof(unsigned int));
+               it2->second.idObjetos[it2->second.numObjetos-1]=pxs.idObjetos[i];
+               it2->second.bitmapObjetos->append(pxs.bitmapObjetos->access(i));
+           }
+        } else {
+           // Nueva familia.
+            idFamilia++;
+            pxs.idSujetos = new unsigned int[1];
+            pxs.idSujetos[0] = s;
+            pxs.numSujetos = 1;
+            numMiembros=numMiembros+pxs.numPredicados;
+            familias.insert(std::pair<string,PredicadosPorSujeto>(familyKey,pxs));
+		if(idFamilia%500==0) cout<<"F"<<idFamilia<<", ";
+        }
+    }
+    bitmapZ->trimToSize();
+
+    out2.close();
+    generaSecuenciasTipo(hdt, 1);
+}
+void FamilyDictionaryMap::generaSecuenciasObjetosLocales(unsigned int nPredicados, map<unsigned int,unsigned int> *m, unsigned int nObjetosDiferentes){
+    // Objetos renombrados localmente
+    //Emparejamos idObjeto - idObjetoLocal por cada predicado
+    cout<<endl<<"Generando vector de Objetos en Predicados..."<<endl;
+    for (size_t i = 0; i < nPredicados; i++){
+        //permO
+        BitString *bitstr = new BitString(nObjetosDiferentes);
+        LogSequence2* diccionarioY = new LogSequence2(hdt::bits(nObjetosDiferentes));
+        BitSequence375* bitmapDiccionarioY = new BitSequence375(nObjetosDiferentes);
+        BitSequence375* bitmapDiccionarioZX = new BitSequence375(0);
+        diccionariosPredicados.push_back(diccionarioY);
+        bitmapDiccionariosPredicados.push_back(bitmapDiccionarioY);
+        bitmapDiccionariosZX.push_back(bitmapDiccionarioZX);
+        if (i==idRdfType-1){
+            diccionariosPredicados.at(i)->push_back(0);
+            bitmapDiccionariosPredicados.at(i)->append(1);
+            bitmapDiccionariosZX.at(i)->append(1);
+        } else {
+            unsigned int idObjetoLocal=0;
+            for (std::map<unsigned int ,unsigned int>::iterator it=m[i].begin(); it!=m[i].end(); ++it){
+                idObjetoLocal++;
+                it->second=idObjetoLocal;
+                bitstr->setBit(it->first-1);
+            }
+        }
+        permO.push_back(new BitSequenceSDArray(*bitstr));
+    }
+
+
+cout<<endl<<"Generando Diccionarios..."<<endl;
+    //Reescribir vectorZ con los objetos locales y diccionarios de predicados
+    size_t j=0;
+    for (size_t i=0; i<vectorF->getNumberOfElements(); i++){
+        //Buscamos en que predicado dentro del vector de familias esta el objeto
+        unsigned int idPredicado = vectorF->get(i);
+        //cout<<"P"<<idPredicado<<endl;
+        //si idPredicado=0 => pertenece a una familia sin predicados
+        if (idPredicado!=0){
+            do{
+                unsigned int idObjetoLocal = m[idPredicado-1].find(vectorZNew->get(j))->second;
+                diccionariosPredicados.at(idPredicado-1)->push_back(idObjetoLocal);
+                bitmapDiccionariosPredicados.at(idPredicado-1)->append(bitmapZNew->access(j));
+                bitmapDiccionariosZX.at(idPredicado-1)->append(bitmapZX->access(j));
+                j++;
+
+            } while (bitmapZNew->access(j-1)==false);
+        }
+    }
+
+    for (size_t i=0; i<diccionariosPredicados.size(); i++) diccionariosPredicados.at(i)->reduceBits();
+
+}
+
+
+void FamilyDictionaryMap::generaSecuenciasTipo(HDT *hdt, bool reorganizar){
+    bitmapF = new BitSequence375(0);
+    bitmapTF = new BitSequence375(0);
+    vectorF = new LogSequence2(hdt::bits(hdt->getDictionary()->getMaxPredicateID()),numMiembros);
+    tiposFamilia = new LogSequence2(hdt::bits(hdt->getDictionary()->getMaxObjectID()),familias.size());
+    unsigned int idFamilia = 0;
+    unsigned int idFamiliaAnterior = 0;
+    unsigned int familiasSinTipo=0;
+    unsigned int nuevoSujeto=0;
+    cout<<"Generar secuencias"<<endl;
+    map<unsigned int,unsigned int> *mapeoObjetos = new map<unsigned int,unsigned int>[hdt->getDictionary()->getMaxPredicateID()]; //Mapa de objetos por predicado con identificador local
+    vector <LogSequence2*> objetosEnPredicados(hdt->getDictionary()->getMaxObjectID(), NULL);
+    cout<<"Predicados="<<hdt->getDictionary()->getMaxPredicateID()<<endl;
+
+    if (reorganizar){
+       secuenciaSujetosNew =  new LogSequence2(hdt::bits(secuenciaSujetos->size()));
+       primeros = new LogSequence2(hdt::bits(hdt->getDictionary()->getMaxSubjectID()),familias.size());
+       bitmapZX = new BitSequence375(bitmapZ->getNumBits());
+       vectorZNew = new LogSequence2(hdt::bits(hdt->getTriples()->getNumberOfElements()),hdt->getTriples()->getNumberOfElements());
+       bitmapZNew = new BitSequence375(bitmapZ->getNumBits());
+
+       mapeoSujetos.clear();
+    }
+    for (std::map<string,PredicadosPorSujeto>::iterator it=familias.begin(); it!=familias.end(); ++it){
+
+        idFamilia++;
+        it->second.idFamilia=idFamilia;
+        if (idFamilia<=15)
+            cout<<endl<<it->first<<endl;
+        // Bitstring por familia para la permutación de sujetos
+        //permS
+        cout <<endl<<"numSujetos="<<numSujetos<<endl;
+        BitString *bitstr = new BitString(numSujetos);
+
+        for (size_t i=0; i<it->second.numSujetos; i++){
+            secuenciaSujetos->set(it->second.idSujetos[i]-1,idFamilia);
+            //permS
+            bitstr->setBit(it->second.idSujetos[i]-1);
+            if (reorganizar){
+                secuenciaSujetosNew->push_back(idFamilia);
+                map<unsigned int, unsigned int>::iterator it2 = mapeoSujetos.find(it->second.idSujetos[i]);
+                unsigned int s=0;
+                //Sujeto no mapeado
+                if (it2 == mapeoSujetos.end()){
+                    nuevoSujeto++;
+                    mapeoSujetos.insert(std::pair<unsigned int, unsigned int>(it->second.idSujetos[i],nuevoSujeto));
+                    s = nuevoSujeto;
+                } else
+                    s = it2->second;
+                if (idFamilia > idFamiliaAnterior){
+                    primeros->push_back(s);
+                    idFamiliaAnterior=idFamilia;
+                }
+            }
+        }
+        //permS
+        permS.push_back(new BitSequenceSDArray(*bitstr));
+
+        // SIn predicados (sólo con el de tipo)
+        if (it->second.numPredicados==0){
+            bitmapF->append(true);
+            vectorF->push_back(0);
+        }
+        for (size_t i=0; i<it->second.numPredicados; i++){
+            vectorF->push_back(it->second.idPredicados[i]);
+            if (i==it->second.numPredicados-1){
+                bitmapF->append(true);
+            }
+            // 1 marca fin de lista
+            else bitmapF->append(false);
+        }
+
+        for (size_t i=0; i<it->second.numTipos; i++){
+            //cout<<it->second.idRdfTypes[i]<<",";
+            tiposFamilia->push_back(it->second.idRdfTypes[i]);
+            if (it->second.idRdfTypes[i]==0) familiasSinTipo++;
+            if (i==it->second.numTipos-1) bitmapTF->append(true);
+            // 1 marca fin de lista
+            else bitmapTF->append(false);
+        }
+
+        //reorganizar secuencia de objetos ordenados por predicados dentro de la familia.
+        if (reorganizar){
+            if(idFamilia%5000==0) cout<<"Reorganizando Familia "<<idFamilia<<endl;
+
+                    //Se encuentran ordenados por sujeto y luego por predicado.
+                    // si S1 y S3-->F1={P1,P4,P7}.
+                    // el orden actual es Op1s1,Op4s1,Op7s1,Op1s3,Op4s3,Op7s3
+                    // Con la reorganización quedaría. Op1s1,Op1s3,Op4s1,Op4s3,Op7s1,Op7s3
+                    size_t pant=0;
+
+                    //DAC requiere de sus propias secuencias
+                    //unsigned int lenSubSeqDAC=0;
+
+                    for (size_t i=1; i<=it->second.numPredicados; i++){
+                        //El enésimo (n) "1" de la lista de objetos corresponde al primer sujeto, desde n hasta 2*n es el segundo así sucesivamente
+                        // Siendo n el número de predicados de los que consta la familia
+                        unsigned int idPredicado = it->second.idPredicados[i-1];
+                        for (size_t j=0; j<it->second.numSujetos; j++){
+                            //Dentro de esa sublista cada "1" corresponderá al fin de objetos de cada predicado
+                            //Bitmap para objetos separados por predicados
+                            unsigned int posicionInicial = (it->second.bitmapObjetos->select1(i+(it->second.numPredicados*j)-1))+1;
+                            unsigned int posicionFinal = it->second.bitmapObjetos->select1(i+(it->second.numPredicados*j));
+                            for (size_t k=posicionInicial; k<=posicionFinal; k++){
+                                unsigned int idObjeto = it->second.idObjetos[k];
+                                if (objetosEnPredicados[idObjeto-1]==NULL){
+                                    LogSequence2 *p = new LogSequence2(hdt::bits(hdt->getDictionary()->getMaxPredicateID()));
+                                    p->push_back(idPredicado);
+                                    objetosEnPredicados[idObjeto-1]=p;
+                                } else{
+                                    objetosEnPredicados[idObjeto-1]->push_back(idPredicado);
+                                }
+
+                                vectorZNew->push_back(idObjeto);
+                                bitmapZX->append(it->second.bitmapObjetos->access(k));
+                                //Renombrar los objetos localmente en base a los predicados
+                                //habrá tantos diccionarios como predicados. Recogemos los idObjetos globales
+                                //cout<<"mapping Familia"<<idFamilia<<" Predicado"<<idPredicado<<" Objeto"<<idObjeto<<endl;
+                                mapeoObjetos[idPredicado-1].insert(std::pair<unsigned int, unsigned int>(idObjeto,0));
+
+                                if (i > pant) {
+                                    if  (pant!=0){
+                                        bitmapZNew->append(true);
+                                    }
+                                    pant=i;
+                                } else{
+                                     bitmapZNew->append(false);
+                                }
+                            }
+                        }
+                        pant=i;
+                    }
+                    //Si la familia no tiene predicados (Solo tiene tipo), no lo almacenamos
+                    if (it->second.numPredicados >0)
+                        bitmapZNew->append(true);
+                }
+    }
+    vectorF->reduceBits();
+    secuenciaSujetos->reduceBits();
+    tiposFamilia->reduceBits();
+    vectorZ->reduceBits();
+    bitmapF->trimToSize();
+    bitmapTF->trimToSize();
+    bitmapZ->trimToSize();
+    primeros->reduceBits();
+    bitmapZX->trimToSize();
+
+    Triples *triples= hdt->getTriples();
+    dynamic_cast<BitmapTriples*>(triples)->setBitmapFamilias(bitmapF);
+    dynamic_cast<BitmapTriples*>(triples)->setArrayFamilias(vectorF);
+    dynamic_cast<BitmapTriples*>(triples)->secuenciaSujetos=secuenciaSujetos;
+    dynamic_cast<BitmapTriples*>(triples)->setTiposFamilia(tiposFamilia);
+    dynamic_cast<BitmapTriples*>(triples)->setBitmapTF(bitmapTF);
+    dynamic_cast<BitmapTriples*>(triples)->setPrimeros(primeros);
+    if(reorganizar){
+        bitmapZNew->trimToSize();
+        vectorZNew->reduceBits();
+        generaSecuenciasObjetosLocales(hdt->getDictionary()->getMaxPredicateID(), mapeoObjetos, hdt->getDictionary()->getMaxObjectID());
+        dynamic_cast<BitmapTriples*>(triples)->setBitmapZX(bitmapZX);
+        dynamic_cast<BitmapTriples*>(triples)->setBitmapZ(bitmapZNew);
+        dynamic_cast<BitmapTriples*>(triples)->setPermS(permS);
+        dynamic_cast<BitmapTriples*>(triples)->setPermO(permO);
+        dynamic_cast<BitmapTriples*>(triples)->setDiccionariosPredicados(diccionariosPredicados);
+        dynamic_cast<BitmapTriples*>(triples)->setBitmapDiccionariosPredicados(bitmapDiccionariosPredicados);
+        dynamic_cast<BitmapTriples*>(triples)->setBitmapDiccionariosZX(bitmapDiccionariosZX);
+        dynamic_cast<BitmapTriples*>(triples)->setnPredicados(hdt->getDictionary()->getMaxPredicateID());
+
+
+    }else{
+        dynamic_cast<BitmapTriples*>(triples)->setBitmapZ(bitmapZ);
+        dynamic_cast<BitmapTriples*>(triples)->setArrayZ(vectorZ);
+    }
+    cout<<endl<<"familias sin tipo="<<familiasSinTipo<<endl;
+}
+
+FamilyDictionaryMap::FamilyDictionaryMap(HDT *hdt) {
+    familias.clear();
+    numMiembros=0;
+    numSujetos=hdt->getDictionary()->getMaxSubjectID();
+    secuenciaSujetos = new LogSequence2(hdt::bits(numSujetos));
+    string familyKey; //identificador de familia
+    unsigned int idFamilia=0;
+    for (unsigned int s=1; s<=numSujetos; s++){
+        familyKey = "";
+        secuenciaSujetos->push_back(0);
+        PredicadosPorSujeto pxs;
+        pxs.idPredicados = new unsigned int[0];
+        pxs.numPredicados = 0;
+        TripleID t=TripleID(s,0,0);
+        IteratorTripleID *it = hdt->getTriples()->search(t);
+        unsigned int pant=0;
+        while (it->hasNext()) {
+            TripleID *tid = it->next();
+            unsigned int p = tid->getPredicate();
+            if (p > pant){
+                pxs.numPredicados++;
+                pxs.idPredicados = (unsigned int*) realloc(pxs.idPredicados, pxs.numPredicados*sizeof(unsigned int));
+                pxs.idPredicados[pxs.numPredicados-1]=p;
+                char predStr [33];
+                snprintf(predStr, sizeof(predStr), "%d", p);
+                familyKey = familyKey + predStr + "#";
+            }
+            pant=p;
+        }
+        delete it;
+        map<string,PredicadosPorSujeto>::iterator it2 = familias.find(familyKey);
+        if(it2 != familias.end()){
+           it2->second.numSujetos++;
+           it2->second.idSujetos = (unsigned int*) realloc(it2->second.idSujetos, it2->second.numSujetos*sizeof(unsigned int));
+           it2->second.idSujetos[it2->second.numSujetos-1]=s;
+        }else{
+            pxs.idSujetos = new unsigned int[1];
+            pxs.idSujetos[0] = s;
+            pxs.numSujetos = 1;
+            numMiembros=numMiembros+pxs.numPredicados;
+                        familias.insert(std::pair<string,PredicadosPorSujeto>(familyKey,pxs));
+            idFamilia++;
+            if(idFamilia%500==0) cout<<"F"<<idFamilia<<", ";
+        }
+    }
+    cout<<"familias.size()="<<familias.size()<<endl;
+    generaSecuencias(hdt);
+}
+
+void FamilyDictionaryMap::generaSecuencias(HDT *hdt){
+    bitmapF = new BitSequence375(numMiembros);
+    vectorF = new LogSequence2(hdt::bits(numMiembros));
+    unsigned int idFamilia = 0;
+    for (std::map<string,PredicadosPorSujeto>::iterator it=familias.begin(); it!=familias.end(); ++it){
+
+        idFamilia++;
+        for (size_t i=0; i<it->second.numPredicados; i++){
+            vectorF->push_back(it->second.idPredicados[i]);
+            if (i==0) bitmapF->append(true);
+            else bitmapF->append(false);
+        }
+        for (size_t i=0; i<it->second.numSujetos; i++){
+            secuenciaSujetos->set(it->second.idSujetos[i]-1,idFamilia);
+        }
+    }
+    vectorF->reduceBits();
+    secuenciaSujetos->reduceBits();
+    bitmapF->trimToSize();
+    //Incluimos esta información en el nuevo HDT
+    Triples *triples= hdt->getTriples();
+    dynamic_cast<BitmapTriples*>(triples)->setBitmapFamilias(bitmapF);
+    dynamic_cast<BitmapTriples*>(triples)->setArrayFamilias(vectorF);
+    dynamic_cast<BitmapTriples*>(triples)->secuenciaSujetos=secuenciaSujetos;
+
+}
+FamilyDictionaryMap::~FamilyDictionaryMap() {
+    // TODO Auto-generated destructor stub
+}
+

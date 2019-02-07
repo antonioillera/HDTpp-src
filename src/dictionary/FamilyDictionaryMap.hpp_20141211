@@ -1,0 +1,85 @@
+/*
+ * FamilyDictionaryMap.hpp
+ *
+ *  Created on: 25/8/2014
+ *      Author: antonio
+ */
+
+#ifndef FAMILYDICTIONARYMAP_HPP_
+#define FAMILYDICTIONARYMAP_HPP_
+#include "HDT.hpp"
+#include "../bitsequence/BitSequence375.h"
+#include "../sequence/WaveletSequence.hpp"
+#include "../sequence/LogSequence2.hpp"
+#include "../sequence/AdjacencyList.hpp"
+#include "BitSequenceSDArray.h"
+
+using namespace std;
+using namespace hdt;
+using namespace cds_static;
+
+class FamilyDictionaryMap {
+
+private:
+	struct PredicadosPorSujeto{
+        unsigned int numSujetos; //Numero de sujetos que apuntan a esta familia
+        unsigned int numPredicados;
+        unsigned int numTipos;
+        unsigned int numObjetos;
+		unsigned int idFamilia;
+		unsigned int *idPredicados; //Predicados que forman parte de esta familia
+		unsigned int *idSujetos; //Sujetos que apuntan a esta familia. Será de tamaño igual a las ocurrencias
+        unsigned int *idRdfTypes; //Tipos de la familia
+        unsigned int *idObjetos; //Objetos de la familia
+        BitSequence375 *bitmapObjetos; //Bitmap de los objetos de esa familia
+        /*bool operator==(const PredicadosPorSujeto &a)const{
+			bool iguales=true;
+			if (numPredicados==a.numPredicados){
+				for (int i=0; i<numPredicados;i++){
+					if (idPredicados[i]!=a.idPredicados[i])	{iguales = false; break;};
+				}
+			}else iguales =false;
+			return iguales;
+        }
+		bool operator<(const PredicadosPorSujeto &a)const{
+			return (ocurrencias<a.ocurrencias);
+        }*/
+        bool operator<(const PredicadosPorSujeto &a)const{
+            return (idFamilia<a.idFamilia);
+        }
+	};
+
+	map<string, PredicadosPorSujeto> familias;
+
+    // Asocia el idSujeto original con el idSujeto tras la reorganización
+    //Si quiero saber el idSjOriginal "at(idSjNuevo-1)"
+    //Si quiero saber el idSjNuevo "find(idSjOriginal)"
+    map<unsigned int, unsigned int> mapeoSujetos;
+    LogSequence2 *sujetosPermutados;
+    BitSequence375 *bitmapSP; //Marca fin de sujetos por familia
+    LogSequence2 *vectorF, *secuenciaSujetos, *secuenciaSujetosPermutados, *tiposFamilia, *vectorZ, *vectorZNew, *vectorZLocal,*objsEnPredicados;
+    BitSequence375 *bitmapF, *bitmapZ, *bitmapTF, *bitmapZX, *bitmapZNew, *bitmapObjsEnPredicados;
+    unsigned int idRdfType;
+    size_t numMiembros, numSujetos, elementosZ;
+    vector <LogSequence2*> diccionariosPredicados;
+    vector <BitSequence375*> bitmapDiccionariosPredicados; // Nueva secuencia de sujetos si hay reorganización por familias
+    vector <BitSequence375*> bitmapDiccionariosZX;
+
+    LogSequence2 *primeros;//Primer sujeto dentro de cada cluster organizado por familias.
+    LogSequence2 *secuenciaSujetosNew; // Nuev
+
+    vector <BitSequence*> permS, permO;
+
+	void generaSecuencias(HDT *hdt);
+    void generaSecuenciasTipo(HDT *hdt, bool reorganizar);//Indica si hay que organizar los sujetos por familia
+    void generaSecuenciasObjetosLocales(unsigned int nPredicados, map<unsigned int,unsigned int> *m, unsigned int nObjetosDiferentes);
+public:
+	FamilyDictionaryMap(HDT *hdt);
+    FamilyDictionaryMap(HDT *hdt, string predicado);
+    LogSequence2 *getVectorF(){return vectorF;}
+    BitSequence375* getBitSeqF(){return bitmapF;}
+    unsigned int getNumMiembros(){return numMiembros;}
+	virtual ~FamilyDictionaryMap();
+};
+
+#endif /* FAMILYDICTIONARYMAP_HPP_ */

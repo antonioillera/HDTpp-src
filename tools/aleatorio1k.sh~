@@ -1,0 +1,14 @@
+#!/bin/sh
+#
+#
+#
+
+
+#Settings
+cont=0
+let lineas = "sed -n $= ../../test/ECyL_spV.txt"
+while [ $cont -lt 1000 ] ; do
+  sed -n $((1+$RANDOM%($lineas-1)))p $fichero >> $fichero_1K.txt
+  let "cont += 1"
+done
+
