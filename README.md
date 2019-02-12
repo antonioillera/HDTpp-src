@@ -25,6 +25,8 @@ It will create a file of the form (P-S*-O*) that k2triples will use to build the
 
 # References
 
+The following references provide the theoretical content on RDF-TR, HDT, K2triples and their counterparts (HDT++ and k2triples++).
+
 [1] A. Hernández-Illera, M.A. Martínez-Prieto, and J.D. Fernández. RDF-TR: Exploiting Structural Redundancies to boost RDF Compression. In Information Sciences, under review. 
 
 [2] A. Hernández-Illera, M.A. Martínez-Prieto, and J.D. Fernández. Serializing RDF in Compressed Space. In Proceedings of the Data Compression Conference (DCC), pages 363–372, 2015.
