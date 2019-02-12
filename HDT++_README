@@ -1,9 +1,0 @@
-HI!
-
-You can actually recompress your HDT files with these tools
---------------------------------------------------------------
-
-1) Download any HDT file. There are plenty of them right here:  http://www.rdfhdt.org/datasets/
-
-2) To convert the RDF/HDT file to RDF/HDT++:
-	> [HDT++ Path]/tools/hdt2hdtpp yourfile.hdt yourfile.hdtpp
