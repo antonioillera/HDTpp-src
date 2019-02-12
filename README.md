@@ -21,7 +21,7 @@ RDF-TR can be used as part of k2-triples[3]. To do so, a series of steps are req
 
 It will create a file of the form (P-S*-O*) that k2triples will use to build the k2trees with local IDs. To generate the k2-triples++ file execute the following command: 
 
-> [k2Triples Path]/
+> [k2Triples Path]/rdfConstruccion/construccion.sh <numberofpredicates> 
 
 # References
 
