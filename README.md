@@ -26,5 +26,7 @@ It will create a file of the form (P-S*-O*) that k2triples will use to build the
 # References
 
 [1] A. Hernández-Illera, M.A. Martínez-Prieto, and J.D. Fernández. RDF-TR: Exploiting Structural Redundancies to boost RDF Compression. In Information Sciences, under review. 
+
 [2] A. Hernández-Illera, M.A. Martínez-Prieto, and J.D. Fernández. Serializing RDF in Compressed Space. In Proceedings of the Data Compression Conference (DCC), pages 363–372, 2015.
+
 [3] S. Álvarez-García, N. Brisaboa, J.D. Fernández, M.A. Martínez-Prieto, and G. Navarro. Compressed Vertical Partitioning for Efficient RDF Management. Knowledge and Information Systems, 44(2):439– 474, 2014.
