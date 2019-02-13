@@ -17,7 +17,7 @@ To recompress any HDT file into HDT++ just:
 # K2-triples++
 
 RDF-TR can be used as part of k2-triples[3]. To do so, a series of steps are required:
-> [HDT++ Path]/tools/primeros2int <file.hdtpp> <file.pso>
+> [HDT++ Path]/tools/extractpso <file.hdtpp> <file.pso>
 
 It will create a file of the form (P-S*-O*) that k2triples will use to build the k2trees with local IDs. To generate the k2-triples++ files, copy the file into the following directory:
 
