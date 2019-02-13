@@ -33,6 +33,7 @@ public:
     void saveToRDF(std::ostream &out);
     void saveToRDF(RDFSerializer &serializer);
     void decompress();
+	void extractPSO(const char *outputFile);
 
 private:
 

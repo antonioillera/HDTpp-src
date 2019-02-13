@@ -553,6 +553,39 @@ void HDTpp::decompress() {
        out.close();
 }
 
+void HDTpp::extractPSO(const char *outputFile) {
+    Families *families = triplespp->getFamilies();
+    PermS *permS = triplespp->getPermS();
+    AdjSO *adjSO = triplespp->getAdjSO();
+    FILE *file;
+    file = fopen(outputFile, "w+" );
+
+    for (int32_t p=1; p<=dictionary->getNpredicates(); p++){
+       size_t nFamiliesInPredicate = families->getNumberOfFamilies(p);
+       if (nFamiliesInPredicate!=0){
+           size_t z = 0;
+           for (uint f=1; f<=nFamiliesInPredicate; f++){
+               unsigned int idFamily = families->access(p,f-1);
+               int32_t s=1;
+               permS->getSubjects(idFamily);
+               while (permS->hasMoreSubjects()){
+                   int32_t idSubject = permS->nextSubject();
+                   do{
+                        int32_t idLocalObject = adjSO->access(p,z)+1;
+                        int32_t triple[3] = {p, s, idLocalObject};
+                        fwrite(triple, sizeof(int32_t), 3, file);
+                        z++;
+                   } while (adjSO->getBit(p, z-1)==0);
+                   s++;
+               }
+           }
+       }
+   }
+
+   fclose(file);
+
+}
+
 void HDTpp::createComponents() {
     header = new PlainHeader();
     dictionary = new FourSectionDictionary();
