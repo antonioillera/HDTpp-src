@@ -2,12 +2,12 @@
 
 This is the RDF/HDT++ source code. HDT++ uses RDF-TR (RDF Triples Reorganization)[1], an RDF triples reorganization technique mainly based on predicate-families extraction. A seminal paper was presented at the DCC (Data Compression Conference)[2] in 2015.
 
-The datasets evaluated in [1] (as well as others) can be found at the following address: http://www.rdfhdt.org/datasets/
+The datasets evaluated in [1]  can be found at the following addresses:
 * [DBLP](http://gaia.infor.uva.es/hdt/dblp-2012-11-28.hdt.gz)
-* [DBTune](http://www.rdfhdt.org/datasets/)
-* [US Census](http://www.rdfhdt.org/datasets/)
-* [LinkedGeoData](http://www.rdfhdt.org/datasets/)
-* [DBPedia](http://www.rdfhdt.org/datasets/)
+* [DBTune](http://gaia.infor.uva.es/hdt/dbtune.hdt)
+* [US Census](http://gaia.infor.uva.es/hdt/censoUS.hdt)
+* [LinkedGeoData](http://gaia.infor.uva.es/hdt/linkedgeodata.hdt.gz)
+* [DBPedia](http://gaia.infor.uva.es/hdt/dbpedia2015.hdt.gz)
 
 # HDT++
 
